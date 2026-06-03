@@ -1,0 +1,1828 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Franklin | IA & Emprendimientos — Academia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+
+<!-- ============================================================
+     FIREBASE CONFIG — Reemplaza con tus datos reales de Firebase
+     Crea tu proyecto en https://console.firebase.google.com
+     ============================================================ -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+           signOut, onAuthStateChanged, updateProfile }
+    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getFirestore, doc, setDoc, getDoc, updateDoc, serverTimestamp, collection, getDocs, deleteDoc, query, orderBy }
+    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  // ⚠️ REEMPLAZA ESTOS VALORES CON TU PROYECTO FIREBASE
+  const firebaseConfig = {
+    apiKey:            "AIzaSyA-Xjqdu_ayxuSyy5BQiWW0BiFadbIL4GA",
+    authDomain:        "franklin-academia.firebaseapp.com",
+    databaseURL:       "https://franklin-academia-default-rtdb.firebaseio.com",
+    projectId:         "franklin-academia",
+    storageBucket:     "franklin-academia.firebasestorage.app",
+    messagingSenderId: "209465840980",
+    appId:             "1:209465840980:web:20fe81688a91a3ff7064c1"
+  };
+
+  const app  = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db   = getFirestore(app);
+
+  // ── Planes y precios (COP) ──────────────────────────────────
+
+  // ── Admin — agrega tu email aquí ──────────────────────────
+  const ADMIN_EMAILS = ["franklinymt@gmail.com"];
+  function isAdmin() { return STATE.user && ADMIN_EMAILS.includes(STATE.user.email); }
+
+  const PLANS = {
+    free:      { name:"Visitante",     price:0,       modules:[0] },
+    curso:     { name:"Curso Grabado", price:119000,  modules:[0,1,2,3,4,5,6] },
+    comunidad: { name:"Comunidad",     price:30000,   modules:[0,1,2,3,4,5,6] },
+    mentoria:  { name:"Mentoría",      price:300000,  modules:[0,1,2,3,4,5,6] },
+    empresa:   { name:"Implementación",price:1000000, modules:[0,1,2,3,4,5,6] }
+  };
+
+  // ── Catálogo de módulos ─────────────────────────────────────
+  const MODULES = [
+    {
+      id:0, num:"00", title:"Bienvenida y Orientación", sub:"Comienza aquí",
+      icon:"ti-rocket", free:true,
+      lessons:[
+        { id:"00-01", title:"Cómo usar esta academia",        duration:"5:12",  videoId:"dQw4w9WgXcQ" },
+        { id:"00-02", title:"Descarga tu kit de bienvenida",  duration:"3:45",  videoId:"dQw4w9WgXcQ" }
+      ]
+    },
+    {
+      id:1, num:"01", title:"Mentalidad y Fundamentos", sub:"Base del emprendedor digital",
+      icon:"ti-brain",
+      lessons:[
+        { id:"01-01", title:"Cómo elegir un negocio digital rentable", duration:"18:30", videoId:"dQw4w9WgXcQ" },
+        { id:"01-02", title:"Errores que hacen perder dinero",         duration:"22:15", videoId:"dQw4w9WgXcQ" },
+        { id:"01-03", title:"Herramientas indispensables gratuitas",   duration:"15:00", videoId:"dQw4w9WgXcQ" },
+        { id:"01-04", title:"Mindset del emprendedor digital",         duration:"20:45", videoId:"dQw4w9WgXcQ" }
+      ]
+    },
+    {
+      id:2, num:"02", title:"WhatsApp para Ventas", sub:"Cierra ventas en el chat",
+      icon:"ti-brand-whatsapp",
+      lessons:[
+        { id:"02-01", title:"Perfil profesional de WhatsApp Business", duration:"12:20", videoId:"dQw4w9WgXcQ" },
+        { id:"02-02", title:"Guiones de venta probados",               duration:"25:00", videoId:"dQw4w9WgXcQ" },
+        { id:"02-03", title:"Sistema de seguimiento de clientes",      duration:"19:30", videoId:"dQw4w9WgXcQ" },
+        { id:"02-04", title:"Técnicas de cierre efectivo",             duration:"28:15", videoId:"dQw4w9WgXcQ" },
+        { id:"02-05", title:"Catálogo digital integrado",              duration:"16:40", videoId:"dQw4w9WgXcQ" }
+      ]
+    },
+    {
+      id:3, num:"03", title:"IA para Negocios", sub:"ChatGPT · Claude · Gemini",
+      icon:"ti-robot",
+      lessons:[
+        { id:"03-01", title:"ChatGPT para tu negocio desde cero",       duration:"30:00", videoId:"dQw4w9WgXcQ" },
+        { id:"03-02", title:"Claude: el asistente más poderoso",        duration:"25:00", videoId:"dQw4w9WgXcQ" },
+        { id:"03-03", title:"Gemini y herramientas de Google",          duration:"18:00", videoId:"dQw4w9WgXcQ" },
+        { id:"03-04", title:"Creación de prompts que venden",           duration:"35:00", videoId:"dQw4w9WgXcQ" },
+        { id:"03-05", title:"Automatización de tareas repetitivas",     duration:"28:00", videoId:"dQw4w9WgXcQ" }
+      ]
+    },
+    {
+      id:4, num:"04", title:"Marketing Digital", sub:"Atrae clientes todos los días",
+      icon:"ti-speakerphone",
+      lessons:[
+        { id:"04-01", title:"Facebook Ads desde cero",              duration:"40:00", videoId:"dQw4w9WgXcQ" },
+        { id:"04-02", title:"Contenido orgánico que convierte",     duration:"22:00", videoId:"dQw4w9WgXcQ" },
+        { id:"04-03", title:"Embudos de venta simples",             duration:"30:00", videoId:"dQw4w9WgXcQ" },
+        { id:"04-04", title:"Captación de leads automatizada",      duration:"25:00", videoId:"dQw4w9WgXcQ" }
+      ]
+    },
+    {
+      id:5, num:"05", title:"Dropshipping", sub:"Vende sin inventario",
+      icon:"ti-truck",
+      lessons:[
+        { id:"05-01", title:"Investigación de productos ganadores",         duration:"35:00", videoId:"dQw4w9WgXcQ" },
+        { id:"05-02", title:"Proveedores confiables y cómo contactarlos",   duration:"20:00", videoId:"dQw4w9WgXcQ" },
+        { id:"05-03", title:"Páginas de venta de alta conversión",          duration:"45:00", videoId:"dQw4w9WgXcQ" },
+        { id:"05-04", title:"Escalado y optimización",                      duration:"30:00", videoId:"dQw4w9WgXcQ" }
+      ]
+    },
+    {
+      id:6, num:"06", title:"Automatizaciones", sub:"Tu negocio trabaja solo",
+      icon:"ti-settings-automation",
+      lessons:[
+        { id:"06-01", title:"Automatizar WhatsApp Business",        duration:"25:00", videoId:"dQw4w9WgXcQ" },
+        { id:"06-02", title:"Formularios y captura de leads",       duration:"18:00", videoId:"dQw4w9WgXcQ" },
+        { id:"06-03", title:"CRM básico gratuito",                  duration:"22:00", videoId:"dQw4w9WgXcQ" },
+        { id:"06-04", title:"Seguimientos automáticos",             duration:"20:00", videoId:"dQw4w9WgXcQ" }
+      ]
+    }
+  ];
+
+  // ── Estado global ───────────────────────────────────────────
+  let STATE = {
+    user: null,
+    userData: null,
+    currentView: "home",
+    currentModule: null,
+    currentLesson: null,
+    plan: "free"
+  };
+
+  // ── Cargar configuración desde Firestore ───────────────────
+  async function loadAcademiaConfig() {
+    try {
+      const snap = await getDoc(doc(db, "config", "academia"));
+      if (snap.exists()) {
+        const cfg = snap.data();
+        // Restaurar módulos
+        if (cfg.modules && Array.isArray(cfg.modules) && cfg.modules.length > 0) {
+          MODULES.length = 0;
+          cfg.modules.forEach(m => MODULES.push(m));
+        }
+        // Restaurar planes
+        if (cfg.plans) {
+          Object.entries(cfg.plans).forEach(([k, v]) => {
+            if (PLANS[k]) Object.assign(PLANS[k], v);
+          });
+        }
+        // Restaurar Wompi
+        if (cfg.wompi) {
+          if (cfg.wompi.plans) Object.assign(WOMPI_CONFIG.plans, cfg.wompi.plans);
+          if (cfg.wompi.whatsapp) WOMPI_CONFIG.whatsapp = cfg.wompi.whatsapp;
+        }
+      }
+    } catch(e) {
+      console.warn("Config no encontrada, usando valores por defecto:", e.message);
+    }
+  }
+
+  // ── Guardar configuración en Firestore ───────────────────────
+  async function saveAcademiaConfig() {
+    if (!isAdmin()) return;
+    try {
+      await setDoc(doc(db, "config", "academia"), {
+        modules:    JSON.parse(JSON.stringify(MODULES)),
+        plans:      JSON.parse(JSON.stringify(PLANS)),
+        wompi: {
+          plans:    JSON.parse(JSON.stringify(WOMPI_CONFIG.plans)),
+          whatsapp: WOMPI_CONFIG.whatsapp || ""
+        },
+        updatedAt: serverTimestamp(),
+        updatedBy: STATE.user?.email || "admin"
+      });
+      return true;
+    } catch(e) {
+      showToast("❌ Error al guardar: " + e.message, "red");
+      return false;
+    }
+  }
+
+  // ── Auth listener ───────────────────────────────────────────
+  onAuthStateChanged(auth, async (user) => {
+    STATE.user = user;
+    // Siempre cargar config al inicio (antes del render)
+    await loadAcademiaConfig();
+    if (user) {
+      const snap = await getDoc(doc(db, "users", user.uid));
+      if (snap.exists()) {
+        STATE.userData = snap.data();
+        STATE.plan = snap.data().plan || "free";
+      } else {
+        const newUser = {
+          uid: user.uid, email: user.email,
+          name: user.displayName || user.email.split("@")[0],
+          plan: "free", progress: {}, createdAt: serverTimestamp()
+        };
+        await setDoc(doc(db, "users", user.uid), newUser);
+        STATE.userData = newUser;
+        STATE.plan = "free";
+      }
+      render("dashboard");
+    } else {
+      STATE.userData = null;
+      STATE.plan = "free";
+      render("home");
+    }
+  });
+
+  // ── Guardar progreso ────────────────────────────────────────
+  async function markLesson(lessonId) {
+    if (!STATE.user) return;
+    const path = `progress.${lessonId}`;
+    await updateDoc(doc(db, "users", STATE.user.uid), {
+      [path]: true, lastActive: serverTimestamp()
+    });
+    if (!STATE.userData.progress) STATE.userData.progress = {};
+    STATE.userData.progress[lessonId] = true;
+    renderProgress();
+  }
+
+  // ── Calcular progreso por módulo ────────────────────────────
+  function moduleProgress(mod) {
+    if (!STATE.userData?.progress) return 0;
+    const done = mod.lessons.filter(l => STATE.userData.progress[l.id]).length;
+    return Math.round((done / mod.lessons.length) * 100);
+  }
+
+  // ── Verificar acceso ────────────────────────────────────────
+  function canAccess(moduleId) {
+    const plan = PLANS[STATE.plan];
+    return plan && plan.modules.includes(moduleId);
+  }
+
+  // ── AUTH FORMS ──────────────────────────────────────────────
+  async function doLogin() {
+    const email = document.getElementById("auth-email").value;
+    const pass  = document.getElementById("auth-pass").value;
+    setAuthMsg("Iniciando sesión...", "info");
+    try {
+      await signInWithEmailAndPassword(auth, email, pass);
+    } catch(e) {
+      setAuthMsg(getAuthError(e.code), "error");
+    }
+  }
+
+  async function doRegister() {
+    const name  = document.getElementById("auth-name").value;
+    const email = document.getElementById("auth-email").value;
+    const pass  = document.getElementById("auth-pass").value;
+    if (!name || !email || !pass) { setAuthMsg("Completa todos los campos", "error"); return; }
+    if (pass.length < 6) { setAuthMsg("La contraseña debe tener mínimo 6 caracteres", "error"); return; }
+    setAuthMsg("Creando tu cuenta...", "info");
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, email, pass);
+      await updateProfile(cred.user, { displayName: name });
+    } catch(e) {
+      setAuthMsg(getAuthError(e.code), "error");
+    }
+  }
+
+  async function doLogout() {
+    await signOut(auth);
+  }
+
+  function setAuthMsg(msg, type) {
+    const el = document.getElementById("auth-msg");
+    if (!el) return;
+    el.textContent = msg;
+    el.className = "auth-msg " + type;
+  }
+
+  function getAuthError(code) {
+    const map = {
+      "auth/invalid-email":          "Correo inválido",
+      "auth/user-not-found":         "Usuario no encontrado",
+      "auth/wrong-password":         "Contraseña incorrecta",
+      "auth/email-already-in-use":   "Este correo ya está registrado",
+      "auth/weak-password":          "La contraseña es muy débil",
+      "auth/invalid-credential":     "Correo o contraseña incorrectos"
+    };
+    return map[code] || "Error: " + code;
+  }
+
+  // ── RENDER ENGINE ───────────────────────────────────────────
+  function render(view) {
+    STATE.currentView = view;
+    const app = document.getElementById("app");
+    app.innerHTML = buildNav() + buildView(view);
+    attachEvents();
+  }
+
+  function buildNav() {
+    const user = STATE.user;
+    const planName = user ? (PLANS[STATE.plan]?.name || "Free") : "";
+    return `
+    <nav>
+      <div class="logo" onclick="goHome()">
+        <div class="logo-badge">FM</div>
+        <div class="logo-text">Franklin<span>IA & Emprendimientos</span></div>
+      </div>
+      <div class="nav-links">
+        <span class="nav-link ${STATE.currentView==='home'||STATE.currentView==='courses'?'active':''}" onclick="render('courses')">Cursos</span>
+        ${user ? `<span class="nav-link ${STATE.currentView==='dashboard'?'active':''}" onclick="render('dashboard')">Mi Progreso</span>` : ""}
+        <span class="nav-link ${STATE.currentView==='pricing'?'active':''}" onclick="render('pricing')">Planes</span>
+        ${isAdmin() ? `<span class="nav-link admin-link ${STATE.currentView==='admin'?'active':''}" onclick="render('admin')"><i class="ti ti-settings"></i> Admin</span>` : ""}
+      </div>
+      <div class="nav-right">
+        ${user
+          ? `<span class="nav-user"><i class="ti ti-user-circle"></i> ${STATE.userData?.name || user.email} <span class="plan-badge">${isAdmin()?"🔑 Admin":planName}</span></span>
+             <button class="btn-ghost" onclick="doLogout()"><i class="ti ti-logout"></i></button>`
+          : `<button class="btn-nav" onclick="render('login')">Ingresar</button>`
+        }
+      </div>
+    </nav>`;
+  }
+
+  function buildView(view) {
+    switch(view) {
+      case "home":     return buildHome();
+      case "courses":  return buildCourses();
+      case "dashboard":return buildDashboard();
+      case "pricing":  return buildPricing();
+      case "login":    return buildAuth("login");
+      case "register": return buildAuth("register");
+      case "player":   return buildPlayer();
+      case "admin":    return isAdmin() ? buildAdmin() : buildHome();
+      default:         return buildHome();
+    }
+  }
+
+  // ── HOME ────────────────────────────────────────────────────
+  function buildHome() {
+    const totalLessons = MODULES.reduce((s,m) => s + m.lessons.length, 0);
+    return `
+    <div class="hero">
+      <div class="hero-content">
+        <div class="hero-tag"><i class="ti ti-sparkles"></i> Academia Online · Medellín, Colombia</div>
+        <h1>Aprende a Vender<br>con <span class="gold">IA & Digital</span></h1>
+        <p>Domina WhatsApp Business, inteligencia artificial y marketing digital para multiplicar tus ingresos. Formación 100% práctica para emprendedores latinos.</p>
+        <div class="hero-cta">
+          <button class="btn-primary btn-lg" onclick="render('courses')">Ver cursos <i class="ti ti-arrow-right"></i></button>
+          <button class="btn-outline btn-lg" onclick="render('pricing')">Ver precios</button>
+        </div>
+        <div class="hero-stats">
+          <div class="h-stat"><strong>${MODULES.length}</strong><span>Módulos</span></div>
+          <div class="h-divider"></div>
+          <div class="h-stat"><strong>${totalLessons}</strong><span>Lecciones</span></div>
+          <div class="h-divider"></div>
+          <div class="h-stat"><strong>4</strong><span>Niveles</span></div>
+          <div class="h-divider"></div>
+          <div class="h-stat"><strong>100%</strong><span>Práctico</span></div>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="hero-card">
+          <div class="hc-top">
+            <div class="hc-avatar">FM</div>
+            <div><div class="hc-name">Franklin Morán</div><div class="hc-role">Instructor Principal</div></div>
+          </div>
+          <div class="hc-modules">
+            ${MODULES.slice(1,5).map(m=>`
+            <div class="hc-mod">
+              <i class="ti ${m.icon}"></i>
+              <span>${m.title}</span>
+              <span class="hc-count">${m.lessons.length} lec</span>
+            </div>`).join("")}
+          </div>
+          <button class="btn-primary" style="width:100%;margin-top:1rem" onclick="render(${STATE.user?`'courses'`:`'register'`})">
+            ${STATE.user ? "Ir a mis cursos" : "Registrarse gratis"} <i class="ti ti-arrow-right"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-wrap">
+      <div class="section-label">LO QUE VAS A LOGRAR</div>
+      <div class="outcomes-grid">
+        ${[
+          ["ti-brand-whatsapp","Vender por WhatsApp","Guiones, seguimientos y cierres de venta profesionales"],
+          ["ti-robot","Automatizar con IA","Usa ChatGPT, Claude y Gemini para tu negocio diario"],
+          ["ti-cash","Generar ingresos online","Dropshipping, cursos y servicios digitales desde cero"],
+          ["ti-speakerphone","Marketing que funciona","Ads, contenido orgánico y embudos de conversión"],
+        ].map(([icon,title,desc])=>`
+        <div class="outcome-card">
+          <div class="oc-icon"><i class="ti ${icon}"></i></div>
+          <div class="oc-title">${title}</div>
+          <div class="oc-desc">${desc}</div>
+        </div>`).join("")}
+      </div>
+    </div>`;
+  }
+
+  // ── COURSES ─────────────────────────────────────────────────
+  function buildCourses() {
+    const totalDone = STATE.userData
+      ? MODULES.reduce((s,m) => s + m.lessons.filter(l => STATE.userData.progress?.[l.id]).length, 0)
+      : 0;
+    const totalLessons = MODULES.reduce((s,m) => s + m.lessons.length, 0);
+
+    return `
+    <div class="page-header">
+      <div>
+        <h2>Programa Completo</h2>
+        <p class="page-sub">${totalLessons} lecciones · ${MODULES.length} módulos · Actualizado 2025</p>
+      </div>
+      ${STATE.user
+        ? `<div class="global-progress">
+             <span>${totalDone} / ${totalLessons} completadas</span>
+             <div class="progress-bar big"><div class="progress-fill" style="width:${Math.round(totalDone/totalLessons*100)}%"></div></div>
+           </div>`
+        : `<button class="btn-primary" onclick="render('register')">Inscribirme gratis <i class="ti ti-arrow-right"></i></button>`
+      }
+    </div>
+    <div class="modules-list">
+      ${MODULES.map(mod => buildModuleRow(mod)).join("")}
+    </div>`;
+  }
+
+  function buildModuleRow(mod) {
+    const locked   = !canAccess(mod.id);
+    const prog     = moduleProgress(mod);
+    const doneLess = STATE.userData ? mod.lessons.filter(l => STATE.userData.progress?.[l.id]).length : 0;
+
+    return `
+    <div class="module-row ${locked?'locked':''}">
+      <div class="mod-header" onclick="toggleModule(${mod.id})">
+        <div class="mod-icon-wrap ${locked?'locked':''}">
+          <i class="ti ${locked?'ti-lock':mod.icon}"></i>
+        </div>
+        <div class="mod-info">
+          <div class="mod-num">MÓDULO ${mod.num}</div>
+          <div class="mod-title">${mod.title}</div>
+          <div class="mod-sub">${mod.sub} · ${mod.lessons.length} lecciones</div>
+        </div>
+        <div class="mod-right">
+          ${!locked && STATE.user
+            ? `<div class="mod-prog">
+                 <span class="prog-text">${doneLess}/${mod.lessons.length}</span>
+                 <div class="progress-bar"><div class="progress-fill" style="width:${prog}%"></div></div>
+               </div>`
+            : locked
+              ? `<span class="lock-label"><i class="ti ti-lock"></i> Requiere plan</span>`
+              : ''
+          }
+          <i class="ti ti-chevron-down mod-chevron" id="chev-${mod.id}"></i>
+        </div>
+      </div>
+      <div class="mod-lessons" id="lessons-${mod.id}" style="display:none">
+        ${mod.lessons.map(l => buildLessonRow(l, mod.id, locked)).join("")}
+      </div>
+    </div>`;
+  }
+
+  function buildLessonRow(lesson, modId, locked) {
+    const done = STATE.userData?.progress?.[lesson.id];
+    return `
+    <div class="lesson-row ${locked?'locked':''} ${done?'done':''}"
+         onclick="${locked ? `showUpgradeMsg()` : `openLesson(${modId},'${lesson.id}')`}">
+      <div class="lesson-icon">
+        <i class="ti ${done?'ti-circle-check':locked?'ti-lock':'ti-player-play'}"></i>
+      </div>
+      <span class="lesson-title">${lesson.title}</span>
+      <span class="lesson-dur"><i class="ti ti-clock"></i> ${lesson.duration}</span>
+    </div>`;
+  }
+
+  // ── PLAYER ──────────────────────────────────────────────────
+  function buildPlayer() {
+    const mod    = STATE.currentModule;
+    const lesson = STATE.currentLesson;
+    if (!mod || !lesson) return buildCourses();
+
+    const lessonIdx = mod.lessons.findIndex(l => l.id === lesson.id);
+    const prevLesson = lessonIdx > 0 ? mod.lessons[lessonIdx - 1] : null;
+    const nextLesson = lessonIdx < mod.lessons.length - 1 ? mod.lessons[lessonIdx + 1] : null;
+    const done = STATE.userData?.progress?.[lesson.id];
+
+    return `
+    <div class="player-layout">
+      <div class="player-main">
+        <div class="player-breadcrumb">
+          <span onclick="render('courses')"><i class="ti ti-arrow-left"></i> Cursos</span>
+          <i class="ti ti-chevron-right"></i>
+          <span>Módulo ${mod.num}</span>
+          <i class="ti ti-chevron-right"></i>
+          <span>${lesson.title}</span>
+        </div>
+
+        <div class="video-container">
+          <iframe
+            src="https://www.youtube-nocookie.com/embed/${lesson.videoId}?rel=0&modestbranding=1"
+            frameborder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowfullscreen>
+          </iframe>
+        </div>
+
+        <div class="player-controls">
+          <button class="btn-ghost ${!prevLesson?'disabled':''}"
+            onclick="${prevLesson?`openLesson(${mod.id},'${prevLesson.id}')`:''}">
+            <i class="ti ti-arrow-left"></i> Anterior
+          </button>
+          <button class="btn-primary ${done?'btn-done':''}" onclick="markLesson('${lesson.id}')">
+            <i class="ti ${done?'ti-circle-check':'ti-check'}"></i>
+            ${done ? "Completada" : "Marcar como completada"}
+          </button>
+          <button class="btn-ghost ${!nextLesson?'disabled':''}"
+            onclick="${nextLesson?`openLesson(${mod.id},'${nextLesson.id}')`:''}">
+            Siguiente <i class="ti ti-arrow-right"></i>
+          </button>
+        </div>
+
+        <div class="lesson-info">
+          <h3>${lesson.title}</h3>
+          <p class="lesson-meta"><i class="ti ti-clock"></i> ${lesson.duration} · Módulo ${mod.num}: ${mod.title}</p>
+        </div>
+      </div>
+
+      <div class="player-sidebar">
+        <div class="sidebar-title">Módulo ${mod.num} · ${mod.title}</div>
+        <div class="sidebar-lessons">
+          ${mod.lessons.map(l => {
+            const isDone = STATE.userData?.progress?.[l.id];
+            const isActive = l.id === lesson.id;
+            return `
+            <div class="sidebar-lesson ${isActive?'active':''} ${isDone?'done':''}"
+                 onclick="openLesson(${mod.id},'${l.id}')">
+              <i class="ti ${isDone?'ti-circle-check':'ti-player-play'}"></i>
+              <span>${l.title}</span>
+              <span class="sl-dur">${l.duration}</span>
+            </div>`;
+          }).join("")}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // ── DASHBOARD ───────────────────────────────────────────────
+  function buildDashboard() {
+    if (!STATE.user) return buildAuth("login");
+
+    const totalLessons = MODULES.reduce((s,m) => s + m.lessons.length, 0);
+    const totalDone    = MODULES.reduce((s,m) => s + m.lessons.filter(l => STATE.userData?.progress?.[l.id]).length, 0);
+    const pct          = Math.round(totalDone / totalLessons * 100);
+    const planName     = PLANS[STATE.plan]?.name || "Gratis";
+    const userName     = STATE.userData?.name || STATE.user.email;
+
+    // Encontrar próxima lección sin ver
+    let nextLess = null, nextMod = null;
+    outer: for (const mod of MODULES) {
+      if (!canAccess(mod.id)) continue;
+      for (const l of mod.lessons) {
+        if (!STATE.userData?.progress?.[l.id]) { nextLess = l; nextMod = mod; break outer; }
+      }
+    }
+
+    return `
+    <div class="page-header">
+      <div>
+        <h2>Hola, ${userName.split(" ")[0]} 👋</h2>
+        <p class="page-sub">Plan activo: <strong>${planName}</strong></p>
+      </div>
+      <button class="btn-outline" onclick="render('pricing')">Mejorar plan <i class="ti ti-arrow-up"></i></button>
+    </div>
+
+    <div class="dash-metrics">
+      <div class="metric-card">
+        <i class="ti ti-check-circle metric-icon green"></i>
+        <div class="metric-value">${totalDone}</div>
+        <div class="metric-label">Lecciones completadas</div>
+      </div>
+      <div class="metric-card">
+        <i class="ti ti-chart-bar metric-icon gold"></i>
+        <div class="metric-value">${pct}%</div>
+        <div class="metric-label">Progreso general</div>
+      </div>
+      <div class="metric-card">
+        <i class="ti ti-books metric-icon blue"></i>
+        <div class="metric-value">${MODULES.filter(m=>canAccess(m.id)).length}</div>
+        <div class="metric-label">Módulos desbloqueados</div>
+      </div>
+      <div class="metric-card">
+        <i class="ti ti-star metric-icon gold"></i>
+        <div class="metric-value">${planName}</div>
+        <div class="metric-label">Tu plan actual</div>
+      </div>
+    </div>
+
+    ${nextLess ? `
+    <div class="continue-card" onclick="openLesson(${nextMod.id},'${nextLess.id}')">
+      <div class="continue-left">
+        <div class="continue-tag">CONTINÚA DONDE LO DEJASTE</div>
+        <div class="continue-title">${nextLess.title}</div>
+        <div class="continue-mod">Módulo ${nextMod.num}: ${nextMod.title} · ${nextLess.duration}</div>
+      </div>
+      <button class="btn-primary"><i class="ti ti-player-play"></i> Continuar</button>
+    </div>` : `
+    <div class="continue-card completed">
+      <div class="continue-left">
+        <div class="continue-tag">🎉 LOGRO</div>
+        <div class="continue-title">¡Completaste todos los módulos disponibles!</div>
+        <div class="continue-mod">Actualiza tu plan para desbloquear más contenido</div>
+      </div>
+      <button class="btn-primary" onclick="render('pricing')">Ver planes</button>
+    </div>`}
+
+    <div id="progress-modules">
+      ${buildProgressModules()}
+    </div>`;
+  }
+
+  function buildProgressModules() {
+    return `
+    <div class="section-label" style="margin-top:2rem">TUS MÓDULOS</div>
+    <div class="progress-modules-grid">
+      ${MODULES.map(mod => {
+        const locked = !canAccess(mod.id);
+        const prog   = moduleProgress(mod);
+        const done   = STATE.userData ? mod.lessons.filter(l => STATE.userData.progress?.[l.id]).length : 0;
+        return `
+        <div class="prog-card ${locked?'locked':''}" onclick="${locked?`render('pricing')`:`render('courses'); setTimeout(()=>toggleModule(${mod.id}),100)`}">
+          <div class="pc-header">
+            <div class="pc-icon ${locked?'locked':''}"><i class="ti ${locked?'ti-lock':mod.icon}"></i></div>
+            <div class="pc-meta">
+              <div class="pc-num">MÓDULO ${mod.num}</div>
+              <div class="pc-title">${mod.title}</div>
+            </div>
+          </div>
+          ${!locked
+            ? `<div class="pc-prog">
+                 <div class="progress-bar"><div class="progress-fill" style="width:${prog}%"></div></div>
+                 <span>${done}/${mod.lessons.length} · ${prog}%</span>
+               </div>`
+            : `<div class="pc-locked-msg"><i class="ti ti-lock"></i> Actualiza tu plan para acceder</div>`
+          }
+        </div>`;
+      }).join("")}
+    </div>`;
+  }
+
+  function renderProgress() {
+    const el = document.getElementById("progress-modules");
+    if (el) el.innerHTML = buildProgressModules();
+  }
+
+  // ── WOMPI CONFIG ─────────────────────────────────────────────
+  // Firmas SHA256 pre-generadas con prod_integrity_eVcYQ4G3Xp242eFJX1tQltcVofIFU2Az
+  // Referencia · Monto en centavos · COP · SecretoIntegridad → SHA256
+  const WOMPI_CONFIG = {
+    publicKey: "pub_prod_RkqlliK4m8jiIIlBEYNxCbPZ5oMYmax0",
+    redirectUrl: "https://franklinymt-ops.github.io/academia/",
+    plans: {
+      curso: {
+        amountCents: 11900000,           // $119.000 COP
+        reference:   "FRANKLIN-CURSO-001",
+        integrity:   "b81909742dffb45f658e2895f7ae557675c69e783666720b4ed266d7ff830aaf"
+      },
+      comunidad: {
+        amountCents: 3000000,            // $30.000 COP
+        reference:   "FRANKLIN-COM-001",
+        integrity:   "b643335187b77eb09f79c71f234f6e1208fbe521cdd8e0551164274003833b5c"
+      },
+      mentoria: {
+        amountCents: 30000000,           // $300.000 COP
+        reference:   "FRANKLIN-MEN-001",
+        integrity:   "69dbe115748f165cd1d3565c0c1d377be872bf68f9367166f6cc2fa2cd214228"
+      }
+    },
+    whatsapp: "57TUNUMERO"
+  };
+
+  // ── PRICING ─────────────────────────────────────────────────
+  function buildPricing() {
+    const plans = [
+      { key:"curso",     badge:"",            price:"$119.000",   period:"COP · pago único",   usd:"≈ USD 28",
+        features:["6 módulos completos","30+ lecciones en video","Acceso de por vida","Actualizaciones incluidas"] },
+      { key:"comunidad", badge:"MÁS POPULAR", price:"$30.000",    period:"COP / mes",           usd:"≈ USD 7/mes",
+        features:["Todo lo del Curso","Comunidad privada Discord","Q&A mensual con Franklin","Plantillas y recursos extra"] },
+      { key:"mentoria",  badge:"",            price:"$300.000",   period:"COP / mes",           usd:"≈ USD 70/mes",
+        features:["Todo lo de Comunidad","Calls semanales grupales","Revisión de tu negocio","Acceso directo a Franklin"] },
+      { key:"empresa",   badge:"",            price:"$1.000.000+",period:"COP · por proyecto",  usd:"≈ USD 240+",
+        features:["Implementación completa","IA y automatizaciones","Sistemas a medida","Soporte continuo 1 a 1"] }
+    ];
+
+    return `
+    <div class="page-header centered">
+      <h2>Elige tu Plan</h2>
+      <p class="page-sub">Desde el curso grabado hasta implementación empresarial. Sin contratos.</p>
+    </div>
+    <div class="pricing-grid">
+      ${plans.map(p => `
+      <div class="price-card ${p.badge?'featured':''}">
+        ${p.badge ? `<div class="feat-badge">${p.badge}</div>` : ""}
+        <div class="plan-level">${PLANS[p.key].name}</div>
+        <div class="plan-price">${p.price}</div>
+        <div class="plan-period">${p.period}</div>
+        <div class="plan-usd">${p.usd}</div>
+        <ul class="plan-features">
+          ${p.features.map(f=>`<li><i class="ti ti-check"></i>${f}</li>`).join("")}
+        </ul>
+        <button class="btn-price ${p.badge?'featured':''}"
+          onclick="handlePlanClick('${p.key}')">
+          ${STATE.plan===p.key
+            ? '<i class="ti ti-circle-check"></i> Plan actual'
+            : p.key==='empresa'
+              ? '<i class="ti ti-brand-whatsapp"></i> Contactar'
+              : 'Pagar con Wompi <i class="ti ti-arrow-right"></i>'
+          }
+        </button>
+      </div>`).join("")}
+    </div>
+    <div class="pricing-note">
+      <i class="ti ti-shield-check"></i>
+      Pagos seguros procesados por <strong>Wompi</strong> · Tarjeta, PSE, Nequi, Bancolombia.
+      Tu acceso se activa en minutos tras confirmar el pago.
+    </div>`;
+  }
+
+  function handlePlanClick(planKey) {
+    // Sin sesión → registrarse primero
+    if (!STATE.user) { render("register"); return; }
+
+    // Plan empresa → WhatsApp directo
+    if (planKey === "empresa") {
+      const msg = encodeURIComponent(
+        `Hola Franklin, soy ${STATE.userData?.name || STATE.user.email} y quiero información sobre el plan de Implementación para mi empresa.`
+      );
+      window.open(`https://wa.me/TUNUMERO_COLOMBIA?text=${msg}`, "_blank");
+      return;
+    }
+
+    // Plan ya activo
+    if (STATE.plan === planKey) {
+      showToast("✅ Ya tienes este plan activo");
+      return;
+    }
+
+    // Obtener config Wompi del plan
+    const wc = WOMPI_CONFIG.plans[planKey];
+    if (!wc) return;
+
+    // Construir URL de Web Checkout con datos del usuario prellenados
+    const email    = encodeURIComponent(STATE.user.email);
+    const nombre   = encodeURIComponent(STATE.userData?.name || "");
+    const redirect = encodeURIComponent(WOMPI_CONFIG.redirectUrl);
+
+    const url = `https://checkout.wompi.co/p/` +
+      `?public-key=${WOMPI_CONFIG.publicKey}` +
+      `&currency=COP` +
+      `&amount-in-cents=${wc.amountCents}` +
+      `&reference=${wc.reference}` +
+      `&signature:integrity=${wc.integrity}` +
+      `&redirect-url=${redirect}` +
+      `&customer-data:email=${email}` +
+      `&customer-data:full-name=${nombre}`;
+
+    // Abrir checkout Wompi en nueva pestaña
+    window.open(url, "_blank");
+
+    // Mostrar instrucción al usuario
+    showToast("🔒 Completando pago en Wompi... Vuelve aquí cuando termines.");
+  }
+
+  // ── AUTH ────────────────────────────────────────────────────
+  function buildAuth(mode) {
+    const isLogin = mode === "login";
+    return `
+    <div class="auth-wrap">
+      <div class="auth-card">
+        <div class="auth-logo">
+          <div class="logo-badge">FM</div>
+          <div class="logo-text">Franklin<span>IA & Emprendimientos</span></div>
+        </div>
+        <h3 class="auth-title">${isLogin ? "Bienvenido de vuelta" : "Crea tu cuenta gratis"}</h3>
+        <p class="auth-sub">${isLogin ? "Inicia sesión para continuar tu aprendizaje" : "Accede al Módulo 0 sin costo. Actualiza cuando quieras."}</p>
+
+        <div id="auth-msg" class="auth-msg" style="display:none"></div>
+
+        ${!isLogin ? `
+        <div class="form-group">
+          <label>Nombre completo</label>
+          <input id="auth-name" type="text" placeholder="Tu nombre" />
+        </div>` : ""}
+
+        <div class="form-group">
+          <label>Correo electrónico</label>
+          <input id="auth-email" type="email" placeholder="tu@correo.com" />
+        </div>
+        <div class="form-group">
+          <label>Contraseña</label>
+          <input id="auth-pass" type="password" placeholder="Mínimo 6 caracteres" />
+        </div>
+
+        <button class="btn-primary btn-full" id="auth-btn"
+          onclick="${isLogin ? "doLogin()" : "doRegister()"}">
+          ${isLogin ? "Ingresar" : "Crear cuenta"} <i class="ti ti-arrow-right"></i>
+        </button>
+
+        <div class="auth-switch">
+          ${isLogin
+            ? `¿No tienes cuenta? <span onclick="render('register')">Regístrate gratis</span>`
+            : `¿Ya tienes cuenta? <span onclick="render('login')">Inicia sesión</span>`
+          }
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // ── HELPERS ─────────────────────────────────────────────────
+  function toggleModule(id) {
+    const lessons = document.getElementById(`lessons-${id}`);
+    const chev    = document.getElementById(`chev-${id}`);
+    if (!lessons) return;
+    const open = lessons.style.display === "none";
+    lessons.style.display = open ? "block" : "none";
+    if (chev) chev.style.transform = open ? "rotate(180deg)" : "";
+  }
+
+  function openLesson(modId, lessonId) {
+    if (!STATE.user) { render("register"); return; }
+    STATE.currentModule = MODULES.find(m => m.id === modId);
+    STATE.currentLesson = STATE.currentModule?.lessons.find(l => l.id === lessonId);
+    render("player");
+  }
+
+  function showUpgradeMsg() {
+    showToast("🔒 Esta lección requiere un plan de pago.");
+    setTimeout(() => render("pricing"), 2500);
+  }
+
+  function goHome() { render("home"); }
+
+  function attachEvents() {
+    // Fix auth-msg visibility
+    const msg = document.getElementById("auth-msg");
+    if (msg && !msg.textContent) msg.style.display = "none";
+
+    // Enter key on auth
+    ["auth-email","auth-pass","auth-name"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener("keypress", e => {
+        if (e.key === "Enter") document.getElementById("auth-btn")?.click();
+      });
+    });
+  }
+
+  // Fix auth-msg display
+  const origSetAuthMsg = setAuthMsg;
+  window._m_setAuthMsg = function(msg, type) {
+    const el = document.getElementById("auth-msg");
+    if (!el) return;
+    el.style.display = "block";
+    el.textContent = msg;
+    el.className = "auth-msg " + type;
+  };
+
+  // Expose to global
+  // Expose via _m_ prefix so bridge script can find them
+  window._m_render       = render;
+  window._m_goHome       = goHome;
+  window._m_toggleModule = toggleModule;
+  window._m_openLesson   = openLesson;
+  window._m_markLesson   = markLesson;
+  window._m_doLogin      = doLogin;
+  window._m_doRegister   = doRegister;
+  window._m_doLogout     = doLogout;
+  // Expose state for direct access
+  window.ADMIN_STATE  = ADMIN_STATE;
+  window.STATE        = STATE;
+  window.MODULES      = MODULES;
+  window.PLANS        = PLANS;
+  window.WOMPI_CONFIG = WOMPI_CONFIG;
+
+  // ════════════════════════════════════════════════════════════
+  //  PANEL ADMINISTRADOR
+  // ════════════════════════════════════════════════════════════
+
+  // ── showToast ─────────────────────────────────────────────
+  function showToast(msg, color) {
+    const t = document.getElementById("toast");
+    if (!t) return;
+    t.textContent = msg;
+    t.style.background = color === "green" ? "#166534" : color === "red" ? "#991b1b" : "";
+    t.classList.add("show");
+    setTimeout(() => { t.classList.remove("show"); t.style.background = ""; }, 4000);
+  }
+
+  // ── Estado admin ──────────────────────────────────────────
+  window.ADMIN_STATE = { tab: "alumnos", users: [], editingModule: null, editingLesson: null };
+  const ADMIN_STATE = window.ADMIN_STATE;
+
+  function adminTab(tab) {
+    ADMIN_STATE.tab = tab;
+    renderAdminContent();
+  }
+
+  // ── BUILD ADMIN ───────────────────────────────────────────
+  function buildAdmin() {
+    return `
+    <div class="admin-layout">
+      <div class="admin-sidebar">
+        <div class="admin-brand"><i class="ti ti-settings"></i> Panel Admin</div>
+        <nav class="admin-nav">
+          ${[
+            ["alumnos",  "ti-users",       "Alumnos"],
+            ["modulos",  "ti-books",        "Módulos"],
+            ["lecciones","ti-player-play",  "Lecciones"],
+            ["planes",   "ti-credit-card",  "Planes"],
+          ].map(([t,icon,label])=>`
+          <div class="adm-nav-item ${ADMIN_STATE.tab===t?'active':''}" onclick="adminTab('${t}')">
+            <i class="ti ${icon}"></i> ${label}
+          </div>`).join("")}
+        </nav>
+      </div>
+      <div class="admin-main" id="adminMain">
+        ${buildAdminTab()}
+      </div>
+    </div>`;
+  }
+
+  function renderAdminContent() {
+    const el = document.getElementById("adminMain");
+    if (el) el.innerHTML = buildAdminTab();
+  }
+
+  function buildAdminTab() {
+    switch(ADMIN_STATE.tab) {
+      case "alumnos":   return buildAdminAlumnos();
+      case "modulos":   return buildAdminModulos();
+      case "lecciones": return buildAdminLecciones();
+      case "planes":    return buildAdminPlanes();
+      default: return buildAdminAlumnos();
+    }
+  }
+
+  // ── TAB: ALUMNOS ──────────────────────────────────────────
+  function buildAdminAlumnos() {
+    const html = `
+    <div class="adm-header">
+      <div>
+        <h2 class="adm-title">Alumnos</h2>
+        <p class="adm-sub">Gestiona usuarios, planes y accesos</p>
+      </div>
+      <button class="btn-primary" onclick="adminLoadUsers()">
+        <i class="ti ti-refresh"></i> Actualizar
+      </button>
+    </div>
+    <div id="usersTable"><div class="adm-loading"><i class="ti ti-loader"></i> Cargando alumnos...</div></div>`;
+    setTimeout(() => adminLoadUsers(), 100);
+    return html;
+  }
+
+  async function adminLoadUsers() {
+    const el = document.getElementById("usersTable");
+    if (!el) return;
+    try {
+      const snap = await getDocs(collection(db, "users"));
+      const users = [];
+      snap.forEach(d => users.push({id: d.id, ...d.data()}));
+      ADMIN_STATE.users = users;
+
+      if (users.length === 0) {
+        el.innerHTML = `<div class="adm-empty"><i class="ti ti-users"></i><p>No hay alumnos registrados aún</p></div>`;
+        return;
+      }
+
+      el.innerHTML = `
+      <div class="adm-stats-row">
+        <div class="adm-stat"><div class="adm-stat-val">${users.length}</div><div class="adm-stat-lbl">Total alumnos</div></div>
+        <div class="adm-stat"><div class="adm-stat-val">${users.filter(u=>u.plan!=='free').length}</div><div class="adm-stat-lbl">Con plan pago</div></div>
+        <div class="adm-stat"><div class="adm-stat-val">${users.filter(u=>u.plan==='free').length}</div><div class="adm-stat-lbl">Plan visitante</div></div>
+        <div class="adm-stat"><div class="adm-stat-val">${users.filter(u=>u.plan==='comunidad').length}</div><div class="adm-stat-lbl">Comunidad</div></div>
+      </div>
+      <div class="adm-table-wrap">
+        <table class="adm-table">
+          <thead><tr>
+            <th>Nombre</th><th>Email</th><th>Plan</th><th>Progreso</th><th>Acciones</th>
+          </tr></thead>
+          <tbody>
+            ${users.map(u => {
+              const totalL = MODULES.reduce((s,m)=>s+m.lessons.length,0);
+              const done   = Object.keys(u.progress||{}).filter(k=>u.progress[k]).length;
+              const pct    = totalL > 0 ? Math.round(done/totalL*100) : 0;
+              return `<tr>
+                <td><strong>${u.name||"—"}</strong></td>
+                <td class="adm-email">${u.email}</td>
+                <td>
+                  <select class="adm-select plan-select" onchange="adminSetPlan('${u.id}',this.value)">
+                    ${["free","curso","comunidad","mentoria","empresa"].map(p=>
+                      `<option value="${p}" ${u.plan===p?'selected':''}>${PLANS[p]?.name||p}</option>`
+                    ).join("")}
+                  </select>
+                </td>
+                <td>
+                  <div class="adm-prog-wrap">
+                    <div class="adm-prog-bar"><div style="width:${pct}%;background:var(--gold);height:100%;border-radius:2px"></div></div>
+                    <span>${done}/${totalL} · ${pct}%</span>
+                  </div>
+                </td>
+                <td>
+                  <button class="adm-btn-danger" onclick="adminDeleteUser('${u.id}','${u.email}')">
+                    <i class="ti ti-trash"></i>
+                  </button>
+                </td>
+              </tr>`;
+            }).join("")}
+          </tbody>
+        </table>
+      </div>`;
+    } catch(e) {
+      el.innerHTML = `<div class="adm-empty"><i class="ti ti-alert-circle"></i><p>Error: ${e.message}</p></div>`;
+    }
+  }
+
+  async function adminSetPlan(uid, plan) {
+    try {
+      await updateDoc(doc(db, "users", uid), { plan, planUpdatedAt: serverTimestamp() });
+      showToast(`✅ Plan actualizado a "${PLANS[plan]?.name}"`, "green");
+    } catch(e) {
+      showToast("❌ Error: " + e.message, "red");
+    }
+  }
+
+  async function adminDeleteUser(uid, email) {
+    if (!confirm(`¿Eliminar al alumno ${email}? Esta acción no se puede deshacer.`)) return;
+    try {
+      await deleteDoc(doc(db, "users", uid));
+      showToast("✅ Alumno eliminado", "green");
+      adminLoadUsers();
+    } catch(e) {
+      showToast("❌ Error: " + e.message, "red");
+    }
+  }
+
+  // ── TAB: MÓDULOS ──────────────────────────────────────────
+  function buildAdminModulos() {
+    return `
+    <div class="adm-header">
+      <div>
+        <h2 class="adm-title">Módulos</h2>
+        <p class="adm-sub">Edita títulos, íconos y orden de los módulos</p>
+      </div>
+    </div>
+    <div class="adm-modules-list">
+      ${MODULES.map(m => `
+      <div class="adm-module-card" id="adm-mod-${m.id}">
+        <div class="adm-mod-info">
+          <div class="adm-mod-icon"><i class="ti ${m.icon}"></i></div>
+          <div>
+            <div class="adm-mod-num">MÓDULO ${m.num}</div>
+            <div class="adm-mod-title">${m.title}</div>
+            <div class="adm-mod-sub">${m.sub} · ${m.lessons.length} lecciones</div>
+          </div>
+        </div>
+        <div class="adm-mod-actions">
+          <button class="adm-btn-edit" onclick="adminEditModule(${m.id})">
+            <i class="ti ti-pencil"></i> Editar
+          </button>
+        </div>
+      </div>`).join("")}
+    </div>
+    <div id="adm-mod-form" style="display:none"></div>`;
+  }
+
+  function adminEditModule(modId) {
+    const mod = MODULES.find(m => m.id === modId);
+    if (!mod) return;
+    const formEl = document.getElementById("adm-mod-form");
+    if (!formEl) return;
+    formEl.style.display = "block";
+    formEl.innerHTML = `
+    <div class="adm-form-card">
+      <h3 class="adm-form-title">Editar Módulo ${mod.num}</h3>
+      <div class="adm-form-grid">
+        <div class="adm-form-group">
+          <label>Título del módulo</label>
+          <input id="adm-mod-title" value="${mod.title}" />
+        </div>
+        <div class="adm-form-group">
+          <label>Subtítulo</label>
+          <input id="adm-mod-sub" value="${mod.sub}" />
+        </div>
+        <div class="adm-form-group">
+          <label>Ícono (Tabler Icons, ej: ti-brain)</label>
+          <input id="adm-mod-icon" value="${mod.icon}" />
+        </div>
+      </div>
+      <div class="adm-form-actions">
+        <button class="btn-primary" onclick="adminSaveModule(${modId})">
+          <i class="ti ti-check"></i> Guardar cambios
+        </button>
+        <button class="btn-ghost" onclick="document.getElementById('adm-mod-form').style.display='none'">
+          Cancelar
+        </button>
+      </div>
+    </div>`;
+    formEl.scrollIntoView({ behavior: "smooth" });
+  }
+
+  function adminSaveModule(modId) {
+    const mod = MODULES.find(m => m.id === modId);
+    if (!mod) return;
+    mod.title = document.getElementById("adm-mod-title")?.value || mod.title;
+    mod.sub   = document.getElementById("adm-mod-sub")?.value   || mod.sub;
+    mod.icon  = document.getElementById("adm-mod-icon")?.value  || mod.icon;
+    document.getElementById("adm-mod-form").style.display = "none";
+    saveAcademiaConfig().then(ok => {
+      showToast(ok ? "✅ Módulo guardado en la nube" : "❌ Error al guardar", ok ? "green" : "red");
+    });
+    adminTab("modulos");
+  }
+
+  // ── TAB: LECCIONES ────────────────────────────────────────
+  function buildAdminLecciones() {
+    if (ADMIN_STATE.editingModule === null) ADMIN_STATE.editingModule = MODULES[0]?.id ?? 0;
+    const selMod = MODULES.find(m => m.id === ADMIN_STATE.editingModule) || MODULES[0];
+
+    return `
+    <div class="adm-header">
+      <div>
+        <h2 class="adm-title">Lecciones</h2>
+        <p class="adm-sub">Agrega y edita videos de cada módulo</p>
+      </div>
+    </div>
+
+    <div class="adm-mod-selector">
+      ${MODULES.map(m => `
+      <button class="adm-mod-btn ${selMod?.id===m.id?'active':''}"
+        onclick="ADMIN_STATE.editingModule=${m.id}; renderAdminContent()">
+        ${m.num} · ${m.title}
+      </button>`).join("")}
+    </div>
+
+    ${selMod ? `
+    <div class="adm-lessons-panel">
+      <div class="adm-lessons-header">
+        <span><i class="ti ${selMod.icon}"></i> ${selMod.title}</span>
+        <button class="btn-primary" onclick="adminNewLesson(${selMod.id})">
+          <i class="ti ti-plus"></i> Nueva lección
+        </button>
+      </div>
+
+      <div class="adm-lessons-list" id="adm-lesson-list">
+        ${selMod.lessons.map((l, idx) => `
+        <div class="adm-lesson-row" id="adm-les-${l.id}">
+          <div class="adm-les-num">${idx+1}</div>
+          <div class="adm-les-info">
+            <div class="adm-les-title">${l.title}</div>
+            <div class="adm-les-meta">
+              <span><i class="ti ti-clock"></i> ${l.duration}</span>
+              <span><i class="ti ti-brand-youtube"></i> ${l.videoId === "dQw4w9WgXcQ" ? "⚠️ Video no configurado" : l.videoId}</span>
+            </div>
+          </div>
+          <div class="adm-les-actions">
+            <button class="adm-btn-edit" onclick="adminEditLesson(${selMod.id},'${l.id}')">
+              <i class="ti ti-pencil"></i>
+            </button>
+            <button class="adm-btn-danger" onclick="adminDeleteLesson(${selMod.id},'${l.id}')">
+              <i class="ti ti-trash"></i>
+            </button>
+          </div>
+        </div>`).join("")}
+      </div>
+
+    </div>` : ""}`;
+  }
+
+  function adminNewLesson(modId) {
+    const mod = MODULES.find(m => m.id === modId);
+    if (!mod) return;
+    ADMIN_STATE.editingModule = modId;
+    const newId = `${String(modId).padStart(2,"0")}-${String(mod.lessons.length+1).padStart(2,"0")}`;
+    showLessonForm(modId, { id: newId, title: "", duration: "00:00", videoId: "" }, true);
+  }
+
+  function adminEditLesson(modId, lessonId) {
+    const mod = MODULES.find(m => m.id === modId);
+    const lesson = mod?.lessons.find(l => l.id === lessonId);
+    if (!lesson) return;
+    ADMIN_STATE.editingModule = modId;
+    showLessonForm(modId, lesson, false);
+  }
+
+  function showLessonForm(modId, lesson, isNew) {
+    // Remove existing modal if any
+    const existing = document.getElementById("adm-lesson-modal");
+    if (existing) existing.remove();
+
+    const modal = document.createElement("div");
+    modal.id = "adm-lesson-modal";
+    modal.className = "adm-modal-overlay";
+    modal.innerHTML = `
+    <div class="adm-modal-box">
+      <div class="adm-modal-header">
+        <h3 class="adm-form-title">${isNew ? "➕ Nueva Lección" : "✏️ Editar Lección"}</h3>
+        <button class="adm-modal-close" onclick="document.getElementById('adm-lesson-modal').remove()">
+          <i class="ti ti-x"></i>
+        </button>
+      </div>
+      <div class="adm-form-grid">
+        <div class="adm-form-group" style="grid-column:1/-1">
+          <label>Título de la lección</label>
+          <input id="les-title" value="${lesson.title}" placeholder="Ej: Cómo crear prompts efectivos" />
+        </div>
+        <div class="adm-form-group">
+          <label>Duración (mm:ss)</label>
+          <input id="les-dur" value="${lesson.duration}" placeholder="25:30" />
+        </div>
+        <div class="adm-form-group">
+          <label>ID de YouTube</label>
+          <input id="les-video" value="${lesson.videoId === 'dQw4w9WgXcQ' ? '' : lesson.videoId}" placeholder="Ej: dQw4w9WgXcQ" />
+        </div>
+      </div>
+      <div class="adm-youtube-help">
+        <i class="ti ti-info-circle"></i>
+        URL del video: youtube.com/watch?v=<strong>ESTE_ES_EL_ID</strong> — puedes usar videos <strong>No Listados</strong>
+      </div>
+      <div class="adm-form-actions">
+        <button class="btn-primary" onclick="adminSaveLesson(${modId},'${lesson.id}',${isNew})">
+          <i class="ti ti-check"></i> ${isNew ? "Agregar lección" : "Guardar cambios"}
+        </button>
+        <button class="btn-ghost" onclick="document.getElementById('adm-lesson-modal').remove()">
+          Cancelar
+        </button>
+      </div>
+    </div>`;
+    document.body.appendChild(modal);
+    document.getElementById("les-title")?.focus();
+  }
+
+  function adminSaveLesson(modId, lessonId, isNew) {
+    const mod = MODULES.find(m => m.id === modId);
+    if (!mod) return;
+    const title   = document.getElementById("les-title")?.value?.trim();
+    const dur     = document.getElementById("les-dur")?.value?.trim();
+    const videoId = document.getElementById("les-video")?.value?.trim();
+    if (!title || !videoId) { showToast("⚠️ Completa título y video ID", "red"); return; }
+    if (isNew) {
+      mod.lessons.push({ id: lessonId, title, duration: dur||"00:00", videoId });
+      showToast("✅ Lección agregada", "green");
+    } else {
+      const les = mod.lessons.find(l => l.id === lessonId);
+      if (les) { les.title = title; les.duration = dur||les.duration; les.videoId = videoId; }
+      showToast("✅ Lección actualizada", "green");
+    }
+    ADMIN_STATE.editingModule = modId;
+    // Save to Firestore
+    showToast("💾 Guardando...", "");
+    saveAcademiaConfig().then(ok => {
+      if (ok) showToast("✅ Lección guardada en la nube", "green");
+    });
+    renderAdminContent();
+    setTimeout(() => {
+      const el = document.getElementById("adminMain");
+      if (el) el.scrollTop = 0;
+    }, 50);
+  }
+
+  function adminDeleteLesson(modId, lessonId) {
+    const mod = MODULES.find(m => m.id === modId);
+    if (!mod || !confirm("¿Eliminar esta lección?")) return;
+    mod.lessons = mod.lessons.filter(l => l.id !== lessonId);
+    saveAcademiaConfig().then(ok => {
+      showToast(ok ? "✅ Lección eliminada" : "⚠️ Eliminada localmente (error al guardar)", ok ? "green" : "red");
+    });
+    renderAdminContent();
+  }
+
+  function adminDeleteModule(modId) {
+    if (!confirm("¿Eliminar este módulo y todas sus lecciones?")) return;
+    const idx = MODULES.findIndex(m => m.id === modId);
+    if (idx > -1) MODULES.splice(idx, 1);
+    saveAcademiaConfig().then(ok => {
+      showToast(ok ? "✅ Módulo eliminado y guardado" : "⚠️ Eliminado localmente (error al guardar)", ok ? "green" : "red");
+    });
+    adminTab("modulos");
+  }
+
+  // ── TAB: PLANES ───────────────────────────────────────────
+  function buildAdminPlanes() {
+    return `
+    <div class="adm-header">
+      <div>
+        <h2 class="adm-title">Planes & Precios</h2>
+        <p class="adm-sub">Edita nombre, precio, descripción y link de pago de cada plan</p>
+      </div>
+    </div>
+
+    <div class="adm-planes-editor">
+      ${Object.entries(PLANS).map(([key, plan]) => {
+        const wc = WOMPI_CONFIG.plans[key];
+        const alumnos = ADMIN_STATE.users.filter(u => u.plan === key).length;
+        return `
+        <div class="adm-plan-editor-card" id="adm-plan-${key}">
+          <div class="adm-plan-editor-header">
+            <div class="adm-plan-editor-left">
+              <div class="adm-plan-key-badge">${key.toUpperCase()}</div>
+              <div>
+                <div class="adm-plan-editor-name" id="adm-pname-display-${key}">${plan.name}</div>
+                <div class="adm-plan-editor-meta">
+                  <span><i class="ti ti-users"></i> ${alumnos} alumnos</span>
+                  <span><i class="ti ti-lock-open"></i> ${plan.modules.length} módulos</span>
+                </div>
+              </div>
+            </div>
+            <button class="adm-btn-edit" onclick="adminTogglePlanForm('${key}')">
+              <i class="ti ti-pencil"></i> Editar
+            </button>
+          </div>
+
+          <div class="adm-plan-price-display">
+            <span class="adm-plan-price-val">${plan.price > 0 ? "$"+plan.price.toLocaleString()+" COP" : "Gratis"}</span>
+            ${wc ? `<span class="adm-plan-wompi-ref"><i class="ti ti-credit-card"></i> Wompi: ${wc.reference}</span>` : '<span class="adm-plan-wompi-ref"><i class="ti ti-brand-whatsapp"></i> Contacto directo</span>'}
+          </div>
+
+          <div class="adm-plan-form" id="adm-plan-form-${key}" style="display:none">
+            <div class="adm-form-grid">
+              <div class="adm-form-group">
+                <label>Nombre del plan</label>
+                <input id="adm-pf-name-${key}" value="${plan.name}" placeholder="Ej: Curso Grabado" />
+              </div>
+              <div class="adm-form-group">
+                <label>Precio en COP (0 = gratis)</label>
+                <input id="adm-pf-price-${key}" type="number" value="${plan.price}" placeholder="119000" />
+              </div>
+              <div class="adm-form-group">
+                <label>Precio en centavos para Wompi</label>
+                <input id="adm-pf-cents-${key}" type="number" value="${wc ? wc.amountCents : 0}" placeholder="11900000" />
+                <small style="color:var(--muted);font-size:11px">Ejemplo: $119.000 COP = 11900000 centavos</small>
+              </div>
+              <div class="adm-form-group">
+                <label>Referencia de pago Wompi</label>
+                <input id="adm-pf-ref-${key}" value="${wc ? wc.reference : ''}" placeholder="FRANKLIN-CURSO-001" />
+              </div>
+              <div class="adm-form-group" style="grid-column:1/-1">
+                <label>Firma de integridad SHA256 <small>(genera en wompi.co → Desarrolladores)</small></label>
+                <input id="adm-pf-sig-${key}" value="${wc ? wc.integrity : ''}" placeholder="hash sha256..." />
+              </div>
+              ${key === 'empresa' ? `
+              <div class="adm-form-group" style="grid-column:1/-1">
+                <label>Número WhatsApp (con código país, ej: 573218765432)</label>
+                <input id="adm-pf-wa-${key}" value="${WOMPI_CONFIG.whatsapp||''}" placeholder="573218765432" />
+              </div>` : ''}
+            </div>
+            <div class="adm-form-actions">
+              <button class="btn-primary" onclick="adminSavePlan('${key}')">
+                <i class="ti ti-check"></i> Guardar cambios
+              </button>
+              <button class="btn-ghost" onclick="adminTogglePlanForm('${key}')">Cancelar</button>
+            </div>
+          </div>
+        </div>`;
+      }).join("")}
+    </div>
+
+    <div class="adm-wompi-info" style="margin-top:1.5rem">
+      <div class="adm-wompi-title"><i class="ti ti-info-circle"></i> Cómo actualizar la firma de Wompi</div>
+      <div class="adm-wompi-body">
+        Cuando cambies el precio, debes generar una nueva firma SHA256 en
+        <strong>Wompi Dashboard → Desarrolladores → Secretos → Integridad</strong>.
+        Concatena: <code>Referencia + MontoEnCentavos + COP + SecretoIntegridad</code> y encripta con SHA256.
+      </div>
+    </div>`;
+  }
+
+  function adminTogglePlanForm(key) {
+    const form = document.getElementById(`adm-plan-form-${key}`);
+    if (!form) return;
+    form.style.display = form.style.display === "none" ? "block" : "none";
+  }
+
+  function adminSavePlan(key) {
+    const name   = document.getElementById(`adm-pf-name-${key}`)?.value?.trim();
+    const price  = parseInt(document.getElementById(`adm-pf-price-${key}`)?.value || "0");
+    const cents  = parseInt(document.getElementById(`adm-pf-cents-${key}`)?.value || "0");
+    const ref    = document.getElementById(`adm-pf-ref-${key}`)?.value?.trim();
+    const sig    = document.getElementById(`adm-pf-sig-${key}`)?.value?.trim();
+    const wa     = document.getElementById(`adm-pf-wa-${key}`)?.value?.trim();
+
+    if (!name) { showToast("⚠️ El nombre es obligatorio", "red"); return; }
+
+    // Update PLANS
+    if (PLANS[key]) {
+      PLANS[key].name  = name;
+      PLANS[key].price = price;
+    }
+
+    // Update WOMPI_CONFIG
+    if (key !== "free" && key !== "empresa" && ref && sig && cents > 0) {
+      if (!WOMPI_CONFIG.plans[key]) WOMPI_CONFIG.plans[key] = {};
+      WOMPI_CONFIG.plans[key].amountCents = cents;
+      WOMPI_CONFIG.plans[key].reference   = ref;
+      WOMPI_CONFIG.plans[key].integrity   = sig;
+    }
+
+    // Update WhatsApp for empresa
+    if (wa) WOMPI_CONFIG.whatsapp = wa;
+
+    adminTogglePlanForm(key);
+    saveAcademiaConfig().then(ok => {
+      showToast(ok ? `✅ Plan "${name}" guardado en la nube` : "❌ Error al guardar", ok ? "green" : "red");
+    });
+    renderAdminContent();
+  }
+
+  window._m_showUpgradeMsg = showUpgradeMsg;
+  window._m_handlePlanClick = handlePlanClick;
+  window._m_isAdmin        = isAdmin;
+  window._m_adminSetPlan   = adminSetPlan;
+  window._m_adminDeleteUser= adminDeleteUser;
+  window._m_adminSaveModule= adminSaveModule;
+  window._m_adminSaveLesson= adminSaveLesson;
+  window._m_adminDeleteLesson = adminDeleteLesson;
+  window._m_adminDeleteModule = adminDeleteModule;
+  window._m_adminTogglePlanForm = adminTogglePlanForm;
+  window._m_saveAcademiaConfig = saveAcademiaConfig;
+  window._m_showLessonForm  = showLessonForm;
+  window._m_adminNewLesson  = adminNewLesson;
+  window._m_adminEditLesson = adminEditLesson;
+  window._m_adminDeleteLesson = adminDeleteLesson;
+  window._m_adminEditModule = adminEditModule;
+  window._m_adminDeleteModule = adminDeleteModule;
+  window._m_adminSaveModule = adminSaveModule;
+  window._m_adminTogglePlanForm = adminTogglePlanForm;
+  window._m_adminSavePlan   = adminSavePlan;
+  window._m_adminLoadUsers  = adminLoadUsers;
+  window._m_adminSetPlan    = adminSetPlan;
+  window._m_adminDeleteUser = adminDeleteUser;
+  window._m_adminTab        = adminTab;
+  window._m_loadAcademiaConfig = loadAcademiaConfig;
+  window.adminSavePlan    = adminSavePlan;
+  window.adminTab       = adminTab;
+  window.adminEditLesson= adminEditLesson;
+  window.adminEditModule= adminEditModule;
+  window._m_showToast      = showToast;
+</script>
+
+<style>
+/* ── RESET & BASE ── */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#1F3461; --navy2:#162850; --navy3:#0f1e3a;
+  --gold:#D4AF37; --gold2:#C9A84C; --gold-light:#fdf3d0;
+  --bg:#f4f2ee; --card:#ffffff;
+  --text:#1a1a2e; --muted:#6b7280; --border:#e0dbd0;
+  --green:#22c55e; --red:#ef4444; --blue:#3b82f6;
+  --shadow:0 2px 12px rgba(31,52,97,0.08);
+  --shadow-md:0 4px 24px rgba(31,52,97,0.12);
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:15px;line-height:1.6}
+button{cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.2s}
+input{font-family:'DM Sans',sans-serif}
+a{color:inherit;text-decoration:none}
+
+/* ── BUTTONS ── */
+.btn-primary{background:var(--gold);color:var(--navy3);border:none;padding:10px 22px;border-radius:8px;font-size:14px;font-weight:600;display:inline-flex;align-items:center;gap:6px}
+.btn-primary:hover{background:var(--gold2);transform:translateY(-1px)}
+.btn-primary.btn-lg{padding:13px 28px;font-size:15px;border-radius:10px}
+.btn-primary.btn-full{width:100%;justify-content:center;padding:13px;font-size:15px}
+.btn-primary.btn-done{background:#dcfce7;color:#166534}
+.btn-outline{background:transparent;color:var(--navy);border:1.5px solid var(--navy);padding:10px 22px;border-radius:8px;font-size:14px;font-weight:500;display:inline-flex;align-items:center;gap:6px}
+.btn-outline:hover{background:var(--navy);color:#fff}
+.btn-outline.btn-lg{padding:13px 28px;font-size:15px;border-radius:10px}
+.btn-ghost{background:transparent;border:none;color:var(--muted);padding:8px 12px;border-radius:6px;font-size:14px;display:inline-flex;align-items:center;gap:6px}
+.btn-ghost:hover{background:var(--border);color:var(--text)}
+.btn-ghost.disabled{opacity:0.3;cursor:default;pointer-events:none}
+
+/* ── NAV ── */
+nav{background:var(--navy3);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:62px;position:sticky;top:0;z-index:200;border-bottom:1px solid rgba(255,255,255,0.06)}
+.logo{display:flex;align-items:center;gap:10px;cursor:pointer}
+.logo-badge{width:36px;height:36px;background:var(--gold);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:15px;color:var(--navy3);letter-spacing:1px;flex-shrink:0}
+.logo-text{font-family:'Bebas Neue',sans-serif;font-size:17px;color:#fff;letter-spacing:2px;line-height:1.15}
+.logo-text span{color:rgba(255,255,255,0.5);display:block;font-size:9px;letter-spacing:3px;font-family:'DM Sans',sans-serif;font-weight:400;text-transform:uppercase}
+.nav-links{display:flex;gap:0;align-items:center}
+.nav-link{color:rgba(255,255,255,0.6);font-size:13px;cursor:pointer;padding:8px 16px;border-bottom:3px solid transparent;transition:all 0.2s;white-space:nowrap}
+.nav-link:hover{color:#fff}
+.nav-link.active{color:#fff;border-bottom-color:var(--gold)}
+.nav-right{display:flex;align-items:center;gap:8px}
+.btn-nav{background:var(--gold);color:var(--navy3);border:none;padding:8px 20px;border-radius:20px;font-size:13px;font-weight:600}
+.btn-nav:hover{background:var(--gold2)}
+.nav-user{color:rgba(255,255,255,0.8);font-size:13px;display:flex;align-items:center;gap:6px}
+.plan-badge{background:rgba(212,175,55,0.2);color:var(--gold);font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;border:1px solid rgba(212,175,55,0.3)}
+
+/* ── HERO ── */
+.hero{background:linear-gradient(135deg,var(--navy3) 0%,var(--navy) 60%,#2a4a8a 100%);padding:4rem 3rem;display:flex;align-items:center;justify-content:space-between;gap:3rem;flex-wrap:wrap}
+.hero-content{flex:1;min-width:300px}
+.hero-tag{color:var(--gold);font-size:12px;font-weight:600;letter-spacing:2px;text-transform:uppercase;margin-bottom:1rem;display:flex;align-items:center;gap:6px}
+.hero h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(2.8rem,6vw,4.5rem);color:#fff;letter-spacing:2px;line-height:1.02;margin-bottom:1rem}
+.hero h1 .gold{color:var(--gold)}
+.hero p{color:rgba(255,255,255,0.72);font-size:16px;max-width:520px;margin-bottom:2rem;line-height:1.75}
+.hero-cta{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:2.5rem}
+.hero-stats{display:flex;align-items:center;gap:0;flex-wrap:wrap}
+.h-stat{text-align:center;padding:0 1.5rem}
+.h-stat:first-child{padding-left:0}
+.h-stat strong{display:block;font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--gold);letter-spacing:1px}
+.h-stat span{font-size:11px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:1px}
+.h-divider{width:1px;height:36px;background:rgba(255,255,255,0.15)}
+.hero-visual{flex-shrink:0}
+.hero-card{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:1.5rem;width:320px;backdrop-filter:blur(10px)}
+.hc-top{display:flex;align-items:center;gap:12px;margin-bottom:1.25rem;padding-bottom:1.25rem;border-bottom:1px solid rgba(255,255,255,0.1)}
+.hc-avatar{width:44px;height:44px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--navy3);flex-shrink:0}
+.hc-name{font-size:15px;font-weight:600;color:#fff}
+.hc-role{font-size:12px;color:rgba(255,255,255,0.5)}
+.hc-mod{display:flex;align-items:center;gap:10px;padding:8px 0;font-size:13px;color:rgba(255,255,255,0.75);border-bottom:1px solid rgba(255,255,255,0.06)}
+.hc-mod:last-child{border-bottom:none}
+.hc-mod i{color:var(--gold);font-size:15px;width:20px;flex-shrink:0}
+.hc-mod span:nth-child(2){flex:1}
+.hc-count{font-size:11px;color:rgba(255,255,255,0.35);white-space:nowrap}
+
+/* ── SECTION WRAP ── */
+.section-wrap{padding:3rem 3rem;max-width:1200px;margin:0 auto}
+.section-label{font-size:11px;font-weight:700;letter-spacing:2.5px;color:var(--muted);text-transform:uppercase;margin-bottom:1.25rem}
+.outcomes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1.25rem}
+.outcome-card{background:var(--card);border:0.5px solid var(--border);border-radius:12px;padding:1.5rem;transition:transform 0.2s,box-shadow 0.2s}
+.outcome-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-md)}
+.oc-icon{width:44px;height:44px;background:var(--gold-light);border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:1rem}
+.oc-icon i{color:var(--gold2);font-size:20px}
+.oc-title{font-size:15px;font-weight:600;color:var(--navy);margin-bottom:0.4rem}
+.oc-desc{font-size:13px;color:var(--muted);line-height:1.6}
+
+/* ── PAGE HEADER ── */
+.page-header{padding:2rem 3rem 1.5rem;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;max-width:1200px;margin:0 auto;width:100%}
+.page-header h2{font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--navy);letter-spacing:2px}
+.page-sub{font-size:14px;color:var(--muted);margin-top:3px}
+.page-header.centered{flex-direction:column;align-items:center;text-align:center}
+.global-progress{display:flex;flex-direction:column;gap:6px;align-items:flex-end;min-width:180px}
+.global-progress span{font-size:12px;color:var(--muted)}
+
+/* ── PROGRESS BARS ── */
+.progress-bar{height:5px;background:#e8e4d9;border-radius:3px;overflow:hidden;width:100%}
+.progress-bar.big{width:180px;height:6px}
+.progress-fill{height:100%;background:var(--gold);border-radius:3px;transition:width 0.5s}
+
+/* ── MODULES LIST ── */
+.modules-list{padding:0 3rem 3rem;max-width:1200px;margin:0 auto;display:flex;flex-direction:column;gap:10px;width:100%}
+.module-row{background:var(--card);border:0.5px solid var(--border);border-radius:12px;overflow:hidden;transition:box-shadow 0.2s}
+.module-row:hover{box-shadow:var(--shadow)}
+.module-row.locked{opacity:0.65}
+.mod-header{display:flex;align-items:center;gap:1rem;padding:1.1rem 1.5rem;cursor:pointer;user-select:none}
+.mod-icon-wrap{width:44px;height:44px;background:var(--navy);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.mod-icon-wrap i{color:var(--gold);font-size:20px}
+.mod-icon-wrap.locked{background:#e8e4d9}
+.mod-icon-wrap.locked i{color:var(--muted)}
+.mod-info{flex:1}
+.mod-num{font-size:10px;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase}
+.mod-title{font-size:15px;font-weight:600;color:var(--navy);margin:1px 0}
+.mod-sub{font-size:12px;color:var(--muted)}
+.mod-right{display:flex;align-items:center;gap:1rem;flex-shrink:0}
+.mod-prog{display:flex;flex-direction:column;gap:4px;align-items:flex-end;min-width:100px}
+.prog-text{font-size:12px;color:var(--muted)}
+.lock-label{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px}
+.mod-chevron{color:var(--muted);font-size:16px;transition:transform 0.3s}
+.mod-lessons{border-top:1px solid var(--border);animation:slideDown 0.2s ease}
+@keyframes slideDown{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
+.lesson-row{display:flex;align-items:center;gap:12px;padding:11px 1.5rem 11px 4rem;cursor:pointer;transition:background 0.15s;border-bottom:0.5px solid var(--border)}
+.lesson-row:last-child{border-bottom:none}
+.lesson-row:hover{background:#faf8f3}
+.lesson-row.locked{cursor:pointer;opacity:0.7}
+.lesson-row.done{background:#f0fdf4}
+.lesson-icon i{font-size:16px;color:var(--muted);width:20px;text-align:center}
+.lesson-row.done .lesson-icon i{color:var(--green)}
+.lesson-row.locked .lesson-icon i{color:var(--muted)}
+.lesson-title{flex:1;font-size:14px;color:var(--text)}
+.lesson-dur{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px;white-space:nowrap}
+.lesson-dur i{font-size:12px}
+
+/* ── PLAYER ── */
+.player-layout{display:grid;grid-template-columns:1fr 340px;gap:0;min-height:calc(100vh - 62px);align-items:start}
+.player-main{padding:1.5rem 2rem;min-width:0}
+.player-breadcrumb{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);margin-bottom:1.25rem;flex-wrap:wrap}
+.player-breadcrumb span{cursor:pointer;transition:color 0.2s}
+.player-breadcrumb span:hover{color:var(--navy)}
+.player-breadcrumb i{font-size:12px;opacity:0.5}
+.video-container{position:relative;padding-bottom:56.25%;background:#000;border-radius:12px;overflow:hidden;margin-bottom:1rem}
+.video-container iframe{position:absolute;top:0;left:0;width:100%;height:100%}
+.player-controls{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap}
+.lesson-info h3{font-size:20px;font-weight:600;color:var(--navy);margin-bottom:0.25rem}
+.lesson-meta{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.player-sidebar{background:var(--card);border-left:1px solid var(--border);padding:1.5rem;height:calc(100vh - 62px);overflow-y:auto;position:sticky;top:62px}
+.sidebar-title{font-size:12px;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:1rem;padding-bottom:0.75rem;border-bottom:1px solid var(--border)}
+.sidebar-lesson{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;transition:background 0.15s;margin-bottom:2px;font-size:13px}
+.sidebar-lesson:hover{background:var(--bg)}
+.sidebar-lesson.active{background:#fdf3d0;color:var(--navy)}
+.sidebar-lesson.done i{color:var(--green)}
+.sidebar-lesson i{font-size:14px;color:var(--muted);flex-shrink:0}
+.sidebar-lesson span:nth-child(2){flex:1;line-height:1.4}
+.sl-dur{font-size:11px;color:var(--muted);white-space:nowrap}
+
+/* ── DASHBOARD ── */
+.dash-metrics{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:1rem;padding:0 3rem;max-width:1200px;margin:0 auto;width:100%}
+.metric-card{background:var(--card);border:0.5px solid var(--border);border-radius:12px;padding:1.25rem;display:flex;flex-direction:column;gap:8px}
+.metric-icon{font-size:24px}
+.metric-icon.green{color:var(--green)}
+.metric-icon.gold{color:var(--gold2)}
+.metric-icon.blue{color:var(--blue)}
+.metric-value{font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--navy);letter-spacing:1px;line-height:1}
+.metric-label{font-size:12px;color:var(--muted)}
+.continue-card{background:var(--navy);border-radius:12px;padding:1.5rem 2rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;margin:1.5rem 3rem;max-width:1134px;cursor:pointer;flex-wrap:wrap}
+.continue-tag{font-size:10px;font-weight:700;letter-spacing:2px;color:var(--gold);text-transform:uppercase;margin-bottom:4px}
+.continue-title{font-size:18px;font-weight:600;color:#fff;margin-bottom:4px}
+.continue-mod{font-size:13px;color:rgba(255,255,255,0.55)}
+.continue-card.completed{background:var(--bg);border:1px solid var(--border);cursor:default}
+.continue-card.completed .continue-title{color:var(--navy)}
+.continue-card.completed .continue-mod{color:var(--muted)}
+.progress-modules-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem;padding:0 3rem 3rem;max-width:1200px;margin:0 auto}
+.prog-card{background:var(--card);border:0.5px solid var(--border);border-radius:12px;padding:1.25rem;cursor:pointer;transition:all 0.2s}
+.prog-card:hover{box-shadow:var(--shadow);transform:translateY(-1px)}
+.prog-card.locked{opacity:0.7}
+.pc-header{display:flex;align-items:center;gap:12px;margin-bottom:1rem}
+.pc-icon{width:40px;height:40px;background:var(--navy);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.pc-icon i{color:var(--gold);font-size:18px}
+.pc-icon.locked{background:#e8e4d9}
+.pc-icon.locked i{color:var(--muted)}
+.pc-num{font-size:10px;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase}
+.pc-title{font-size:14px;font-weight:600;color:var(--navy)}
+.pc-prog{display:flex;flex-direction:column;gap:5px}
+.pc-prog span{font-size:12px;color:var(--muted)}
+.pc-locked-msg{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;margin-top:0.25rem}
+
+/* ── PRICING ── */
+.pricing-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1.25rem;padding:1rem 3rem 2rem;max-width:1200px;margin:0 auto;width:100%}
+.price-card{background:var(--card);border:0.5px solid var(--border);border-radius:14px;padding:2rem 1.5rem;position:relative;transition:all 0.2s}
+.price-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px)}
+.price-card.featured{border:2px solid var(--gold)}
+.feat-badge{position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:var(--gold);color:var(--navy3);font-size:10px;font-weight:700;padding:4px 16px;border-radius:20px;white-space:nowrap;letter-spacing:1px}
+.plan-level{font-size:11px;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:0.75rem}
+.plan-price{font-family:'Bebas Neue',sans-serif;font-size:2.4rem;color:var(--navy);letter-spacing:1px;line-height:1}
+.plan-period{font-size:13px;color:var(--muted);margin-bottom:4px}
+.plan-usd{font-size:12px;color:var(--gold2);font-weight:600;margin-bottom:1.5rem}
+.plan-features{list-style:none;margin-bottom:1.5rem}
+.plan-features li{display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--muted);padding:5px 0;border-bottom:0.5px solid var(--border)}
+.plan-features li:last-child{border:none}
+.plan-features li i{color:var(--gold2);font-size:14px;flex-shrink:0;margin-top:2px}
+.btn-price{width:100%;padding:11px;border-radius:8px;font-size:13px;font-weight:600;background:transparent;border:1.5px solid var(--navy);color:var(--navy);display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.2s}
+.btn-price:hover,.btn-price.featured{background:var(--navy);color:#fff}
+.pricing-note{text-align:center;font-size:13px;color:var(--muted);padding:1.5rem 3rem 3rem;display:flex;align-items:center;justify-content:center;gap:8px}
+.pricing-note i{color:var(--green);font-size:16px}
+
+/* ── AUTH ── */
+.auth-wrap{min-height:calc(100vh - 62px);display:flex;align-items:center;justify-content:center;padding:2rem}
+.auth-card{background:var(--card);border:0.5px solid var(--border);border-radius:16px;padding:2.5rem;width:100%;max-width:420px;box-shadow:var(--shadow-md)}
+.auth-logo{display:flex;align-items:center;gap:10px;margin-bottom:2rem;justify-content:center}
+.auth-title{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:var(--navy);letter-spacing:2px;text-align:center;margin-bottom:0.4rem}
+.auth-sub{font-size:14px;color:var(--muted);text-align:center;margin-bottom:1.75rem;line-height:1.6}
+.form-group{margin-bottom:1rem}
+.form-group label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:6px}
+.form-group input{width:100%;padding:11px 14px;border:1px solid var(--border);border-radius:8px;font-size:14px;outline:none;transition:border 0.2s;background:#fff;color:var(--text)}
+.form-group input:focus{border-color:var(--navy)}
+.auth-msg{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:1rem}
+.auth-msg.info{background:#eff6ff;color:#1d4ed8}
+.auth-msg.error{background:#fef2f2;color:#dc2626}
+.auth-switch{text-align:center;margin-top:1.25rem;font-size:13px;color:var(--muted)}
+.auth-switch span{color:var(--navy);font-weight:600;cursor:pointer;text-decoration:underline}
+
+
+/* ── ADMIN PANEL ── */
+.admin-layout{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 62px)}
+.admin-sidebar{background:var(--navy3);padding:1.5rem 0;border-right:1px solid rgba(255,255,255,0.06)}
+.admin-brand{color:var(--gold);font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:0 1.25rem 1.25rem;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:8px;margin-bottom:0.75rem}
+.admin-nav{display:flex;flex-direction:column}
+.adm-nav-item{display:flex;align-items:center;gap:10px;padding:11px 1.25rem;color:rgba(255,255,255,0.6);font-size:13px;cursor:pointer;transition:all 0.2s;border-left:3px solid transparent}
+.adm-nav-item:hover{background:rgba(255,255,255,0.05);color:#fff}
+.adm-nav-item.active{background:rgba(212,175,55,0.1);color:var(--gold);border-left-color:var(--gold)}
+.adm-nav-item i{font-size:16px;width:20px}
+.admin-main{padding:2rem;overflow-y:auto;background:var(--bg)}
+.adm-header{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1.75rem;flex-wrap:wrap}
+.adm-title{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:var(--navy);letter-spacing:2px}
+.adm-sub{font-size:14px;color:var(--muted);margin-top:2px}
+.adm-loading{display:flex;align-items:center;gap:8px;color:var(--muted);padding:2rem;font-size:14px}
+.adm-loading i{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.adm-empty{display:flex;flex-direction:column;align-items:center;gap:1rem;padding:3rem;color:var(--muted);text-align:center}
+.adm-empty i{font-size:3rem;opacity:0.3}
+.adm-stats-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:1rem;margin-bottom:1.5rem}
+.adm-stat{background:var(--card);border:0.5px solid var(--border);border-radius:10px;padding:1rem;text-align:center}
+.adm-stat-val{font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--navy);letter-spacing:1px}
+.adm-stat-lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+.adm-table-wrap{background:var(--card);border:0.5px solid var(--border);border-radius:12px;overflow:hidden}
+.adm-table{width:100%;border-collapse:collapse}
+.adm-table thead{background:var(--navy);color:#fff}
+.adm-table th{padding:11px 14px;font-size:12px;font-weight:600;text-align:left;letter-spacing:0.5px;text-transform:uppercase}
+.adm-table td{padding:11px 14px;font-size:13px;border-bottom:0.5px solid var(--border);vertical-align:middle}
+.adm-table tr:last-child td{border-bottom:none}
+.adm-table tr:hover td{background:#faf8f3}
+.adm-email{color:var(--muted);font-size:12px}
+.adm-select{border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;font-family:'DM Sans',sans-serif;background:#fff;color:var(--text);cursor:pointer}
+.adm-prog-wrap{display:flex;align-items:center;gap:8px}
+.adm-prog-bar{width:80px;height:5px;background:#e8e4d9;border-radius:3px;overflow:hidden;flex-shrink:0}
+.adm-prog-wrap span{font-size:11px;color:var(--muted);white-space:nowrap}
+.adm-btn-edit{background:var(--gold-light);color:var(--gold2);border:none;padding:6px 10px;border-radius:6px;font-size:12px;display:inline-flex;align-items:center;gap:4px;cursor:pointer;transition:all 0.2s}
+.adm-btn-edit:hover{background:var(--gold);color:var(--navy3)}
+.adm-btn-danger{background:#fef2f2;color:#dc2626;border:none;padding:6px 10px;border-radius:6px;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;transition:all 0.2s}
+.adm-btn-danger:hover{background:#dc2626;color:#fff}
+.adm-modules-list{display:flex;flex-direction:column;gap:10px;margin-bottom:1.5rem}
+.adm-module-card{background:var(--card);border:0.5px solid var(--border);border-radius:10px;padding:1.1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;gap:1rem}
+.adm-mod-info{display:flex;align-items:center;gap:12px}
+.adm-mod-icon{width:40px;height:40px;background:var(--navy);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.adm-mod-icon i{color:var(--gold);font-size:18px}
+.adm-mod-num{font-size:10px;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase}
+.adm-mod-title{font-size:14px;font-weight:600;color:var(--navy)}
+.adm-mod-sub{font-size:12px;color:var(--muted)}
+.adm-mod-actions{display:flex;gap:8px;flex-shrink:0}
+.adm-form-card{background:var(--card);border:1.5px solid var(--gold);border-radius:12px;padding:1.5rem;margin-top:1rem}
+.adm-form-title{font-family:'Bebas Neue',sans-serif;font-size:1.3rem;color:var(--navy);letter-spacing:2px;margin-bottom:1.25rem}
+.adm-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem}
+.adm-form-group{display:flex;flex-direction:column;gap:6px}
+.adm-form-group label{font-size:13px;font-weight:500;color:var(--text)}
+.adm-form-group label small{font-weight:400;color:var(--muted);margin-left:4px}
+.adm-form-group input{padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:'DM Sans',sans-serif;outline:none;transition:border 0.2s}
+.adm-form-group input:focus{border-color:var(--navy)}
+.adm-form-actions{display:flex;gap:10px;align-items:center}
+.adm-youtube-help{background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;font-size:12px;color:#1d4ed8;margin-bottom:1.25rem;display:flex;align-items:center;gap:8px}
+.adm-mod-selector{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:1.5rem}
+.adm-mod-btn{background:var(--card);border:1px solid var(--border);padding:7px 14px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;transition:all 0.2s;color:var(--text)}
+.adm-mod-btn:hover,.adm-mod-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+.adm-lessons-panel{background:var(--card);border:0.5px solid var(--border);border-radius:12px;overflow:hidden}
+.adm-lessons-header{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;background:var(--navy);color:#fff;font-size:14px;font-weight:600}
+.adm-lessons-header i{color:var(--gold);margin-right:6px}
+.adm-lessons-list{padding:0.5rem}
+.adm-lesson-row{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;transition:background 0.15s}
+.adm-lesson-row:hover{background:var(--bg)}
+.adm-les-num{width:28px;height:28px;background:var(--navy);color:var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.adm-les-info{flex:1}
+.adm-les-title{font-size:14px;font-weight:500;color:var(--text);margin-bottom:2px}
+.adm-les-meta{display:flex;gap:1rem;font-size:11px;color:var(--muted)}
+.adm-les-meta span{display:flex;align-items:center;gap:4px}
+.adm-les-actions{display:flex;gap:6px;flex-shrink:0}
+.adm-planes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:1rem;margin-bottom:2rem}
+.adm-plan-card{background:var(--card);border:0.5px solid var(--border);border-radius:12px;padding:1.25rem}
+.adm-plan-key{font-size:10px;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:4px}
+.adm-plan-name{font-size:16px;font-weight:600;color:var(--navy);margin-bottom:4px}
+.adm-plan-price{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--gold2);letter-spacing:1px;margin-bottom:8px}
+.adm-plan-mods,.adm-plan-users{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;padding:3px 0}
+.adm-wompi-info{background:var(--card);border:0.5px solid var(--border);border-radius:12px;padding:1.25rem}
+.adm-wompi-title{font-size:14px;font-weight:600;color:var(--navy);margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.adm-wompi-body{font-size:13px;color:var(--muted);line-height:1.6}
+.adm-wompi-body code{background:#f0ede6;padding:2px 6px;border-radius:4px;font-size:12px;color:var(--navy)}
+.admin-link{color:var(--gold) !important}
+@media(max-width:900px){.admin-layout{grid-template-columns:1fr}.admin-sidebar{display:none}}
+
+
+/* ── ADMIN PLAN EDITOR ── */
+.adm-planes-editor{display:flex;flex-direction:column;gap:1rem}
+.adm-plan-editor-card{background:var(--card);border:0.5px solid var(--border);border-radius:12px;overflow:hidden}
+.adm-plan-editor-header{display:flex;align-items:center;justify-content:space-between;padding:1.1rem 1.25rem;gap:1rem}
+.adm-plan-editor-left{display:flex;align-items:center;gap:12px}
+.adm-plan-key-badge{background:var(--navy);color:var(--gold);font-size:10px;font-weight:700;padding:4px 10px;border-radius:6px;letter-spacing:1.5px}
+.adm-plan-editor-name{font-size:15px;font-weight:600;color:var(--navy)}
+.adm-plan-editor-meta{display:flex;gap:1rem;font-size:12px;color:var(--muted);margin-top:2px}
+.adm-plan-editor-meta span{display:flex;align-items:center;gap:4px}
+.adm-plan-price-display{display:flex;align-items:center;gap:1.5rem;padding:0.75rem 1.25rem;background:#f8f7f4;border-top:0.5px solid var(--border)}
+.adm-plan-price-val{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:var(--navy);letter-spacing:1px}
+.adm-plan-wompi-ref{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px}
+.adm-plan-form{padding:1.25rem;border-top:1px solid var(--border);background:#fffbf0}
+.adm-plan-form .adm-form-grid{margin-bottom:1rem}
+
+
+/* ── ADMIN MODAL ── */
+.adm-modal-overlay{position:fixed;inset:0;background:rgba(15,30,58,0.7);z-index:500;display:flex;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(4px)}
+.adm-modal-box{background:var(--card);border-radius:16px;padding:2rem;width:100%;max-width:560px;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:modalIn 0.2s ease}
+@keyframes modalIn{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}
+.adm-modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem}
+.adm-modal-header .adm-form-title{margin-bottom:0}
+.adm-modal-close{background:var(--bg);border:none;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);font-size:16px;flex-shrink:0}
+.adm-modal-close:hover{background:var(--border);color:var(--text)}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(100px);background:var(--navy3);color:#fff;padding:12px 24px;border-radius:30px;font-size:14px;z-index:1000;transition:transform 0.3s;white-space:nowrap;box-shadow:var(--shadow-md)}
+#toast.show{transform:translateX(-50%) translateY(0)}
+
+/* ── RESPONSIVE ── */
+@media(max-width:900px){
+  .hero{padding:2.5rem 1.5rem}
+  .hero-visual{display:none}
+  .player-layout{grid-template-columns:1fr}
+  .player-sidebar{display:none}
+  .page-header{padding:1.5rem 1.5rem 1rem}
+  .modules-list{padding:0 1.5rem 2rem}
+  .dash-metrics,.pricing-grid,.progress-modules-grid{padding-left:1.5rem;padding-right:1.5rem}
+  .continue-card{margin:1.5rem 1.5rem}
+  .section-wrap{padding:2rem 1.5rem}
+  nav{padding:0 1rem}
+  .nav-links{display:none}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-size:18px;color:#666">
+    <div style="text-align:center">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:2rem;color:#1F3461;margin-bottom:0.5rem">FRANKLIN</div>
+      Conectando con Firebase...
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+// Bridge: expone funciones del módulo Firebase a scope global
+// Necesario porque type="module" aísla el scope
+function _ready(fn) {
+  if (document.readyState !== 'loading') fn();
+  else document.addEventListener('DOMContentLoaded', fn);
+}
+// Todas las llamadas onclick van a través de este bridge
+var _b = [
+  'render','goHome','toggleModule','openLesson','markLesson',
+  'doLogin','doRegister','doLogout','showUpgradeMsg','handlePlanClick',
+  'isAdmin','adminSetPlan','adminDeleteUser','adminSaveModule','adminSaveLesson',
+  'adminDeleteLesson','adminDeleteModule','adminNewLesson','adminEditLesson',
+  'adminEditModule','adminTab','adminTogglePlanForm','adminSavePlan',
+  'adminLoadUsers','showLessonForm','showToast',
+  'saveAcademiaConfig','loadAcademiaConfig','setAuthMsg'
+];
+_b.forEach(function(fn) {
+  window[fn] = function() {
+    var f = window['_m_' + fn];
+    if (f) return f.apply(this, arguments);
+    console.error('Función no lista aún: ' + fn);
+  };
+});
+</script>
+</body>
+</html>
